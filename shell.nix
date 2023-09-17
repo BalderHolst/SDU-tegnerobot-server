@@ -5,6 +5,7 @@ pkgs.mkShell {
     (pkgs.python3.withPackages (ps: [
       ps.flask
       ps.requests
+      ps.gunicorn
     ]))
   ];
 }
