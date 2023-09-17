@@ -1,9 +1,9 @@
 body {
-    background: linear-gradient(90deg, rgba(150,150,208,1) 0%, rgba(150,252,255,1) 100%);
+    background: #EEEEEE;
 }
 
 h1 {
-    /* background: red; */
+    text-align: center;
 }
 
 #printers {
@@ -29,7 +29,7 @@ label {
     border: 2px solid black;
     border-radius: 5px;
     margin: 10px;
-    width: 200px;
+    width: max(10vw, 200px);
     box-shadow: 5px 5px 5px #00000030;
 }
 
@@ -51,13 +51,13 @@ input {
 }
 
 .idle {
-    background: #00FF0090;
+    background: #20FF2090;
 }
 
 .running {
-    background: #0000FF90;
+    background: #4444FFA0;
 }
 
 .error {
-    background: #FF000090;
+    background: #FF222290;
 }

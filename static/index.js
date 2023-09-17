@@ -52,11 +52,33 @@ function populate_printers(printers) {
         }
         label.textContent = "Printer: " + printer.id;
         label.className = "printer_name";
+
         printer_div.appendChild(label); // Add the printer name to the printer node
+    }
+}
 
+async function update_printers() {
+    const printers = await get_printers();
 
-        console.log(printer);
+    for (printer of printers) {
+        const div = document.getElementById("printer" + printer.id).parentElement;
+        div.classList.remove("idle");
+        div.classList.remove("running");
+        div.classList.remove("error");
+
+        if (printer.status == "idle") {
+            div.classList.add("idle");
+        }
+        else if (printer.status == "running") {
+            div.classList.add("running");
+        }
+        else {
+            div.classList.add("error");
+        }
     }
 }
 
 get_printers().then(printers => populate_printers(printers));
+
+// Update printer status every 4 seconds
+const intervalId = window.setInterval(update_printers, 4000);
