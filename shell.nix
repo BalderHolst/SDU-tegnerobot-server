@@ -6,6 +6,7 @@ pkgs.mkShell {
       ps.flask
       ps.requests
       ps.gunicorn
+      ps.pyserial
     ]))
   ];
 }

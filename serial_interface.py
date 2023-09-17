@@ -1,3 +1,6 @@
-def send_to_printer(printer_id, data):
+import serial
+
+def send_to_printer(printer, data):
     # TODO
-    print(f"Sending to printer {printer_id}:\n{data}")
+    printer.status = "running"
+    print(f"Sending to printer {printer.id}:\n{data}")
