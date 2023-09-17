@@ -9,15 +9,8 @@ function populate_printers(printers) {
     const printers_div = document.getElementById("printers");
     for (printer of printers) {
 
-        // Div holding all the information of the printer
-        // const printer_div = document.createElement("div");
-        // printer_div.className = "printer";
-
-
-        <!-- <form action="/printers/1" method=post enctype=multipart/form-data> -->
-        <!--   <input id="printer1" style="display: None;" type=file onchange="form.submit()" name=file> -->
-        <!--   <label for="printer1">Hello</label> -->
-        <!-- </form> -->
+        // Variable describing if the printer is available.
+        let available = false;
 
         // Create form for submitting
         const printer_div = document.createElement("form");
@@ -28,6 +21,7 @@ function populate_printers(printers) {
 
         // Set the status of the printer
         if (printer.status == "idle") {
+            available = true;
             printer_div.classList.add("idle");
         }
         else if (printer.status == "running") {
@@ -53,7 +47,9 @@ function populate_printers(printers) {
         printer_div.appendChild(input); // Add the printer name to the printer node
 
         const label = document.createElement("label");
-        label.setAttribute("for", input_id);
+        if (available) {
+            label.setAttribute("for", input_id);
+        }
         label.textContent = "Printer: " + printer.id;
         label.className = "printer_name";
         printer_div.appendChild(label); // Add the printer name to the printer node
