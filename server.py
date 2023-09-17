@@ -31,18 +31,7 @@ class Printer:
         self.id = Printer.next_id()
 
     def __repr__(self):
-        return f"Printer(port: {self.port}, status: {self.status})"
-
-# TESTING
-printers = [Printer("some_port"), Printer("some_OTHER_port")]
-
-# TESTING
-for i in range(20):
-    printers.append(Printer(f"Dummy {i}"))
-
-# TESTING
-printers[5].status = "running"
-printers[6].status = "error"
+        return f"Printer(id: {self.id}, port: {self.port}, status: {self.status})"
 
 @app.route("/")
 def site():
@@ -145,4 +134,5 @@ def run():
     app.run(host="0.0.0.0", port=5005)
 
 if __name__ == "__main__":
+    scan_for_printers()
     run()
