@@ -3,15 +3,14 @@
 from flask import *
 import json
 import serial.tools.list_ports
+from multiprocessing import Manager
+import gunicorn.app.base 
 
 # Modul som sender til printeren
 import serial_interface as si
 
 title = "Tegnerobot Server"
 app = Flask(title)
-
-
-printers = []
 
 class Printer:
 
@@ -32,6 +31,11 @@ class Printer:
 
     def __repr__(self):
         return f"Printer(id: {self.id}, port: {self.port}, status: {self.status})"
+
+@app.route("/test")
+def add_dummy_printer():
+    printers.append(Printer("Dummy"))
+    return site()
 
 @app.route("/")
 def site():
@@ -71,12 +75,11 @@ def scan_for_printers():
         except ValueError:
             pass
 
-    # We do not need the old printers any longer
-    printers = new_printers
+    # We do not need the old printer list anymore
+    printers = manager.list(new_printers)
 
     # Add the newly connected printers
     for port in new_ports:
-        print(f"Added new: {port.device}")
         printers.append(Printer(port.device))
 
     # Print some status
@@ -84,7 +87,7 @@ def scan_for_printers():
     for p in printers:
         print("\t" + str(p))
         
-    return redirect("/");
+    return redirect("/")
 
 
 # Iconet på tab'en
@@ -97,10 +100,11 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# Returns a type of the printer's intex into `printers' and the printer itself
 def get_printer_by_id(id):
-    for p in printers:
+    for (i, p) in enumerate(printers):
         if p.id == id:
-            return p
+            return (i, p)
     return None
 
 @app.route("/printers/<path:path>", methods=['POST'])
@@ -112,7 +116,7 @@ def upload_to_printer(path):
     except ValueError as e:
         flash(f"Endpoint `{path}` was not a printer id.")
         return redirect("/")
-    printer = get_printer_by_id(id)
+    (printer_index, printer) = get_printer_by_id(id)
     if not printer:
         flash(f"Could not find printer with id: `{id}`.")
         return redirect("/")
@@ -127,12 +131,48 @@ def upload_to_printer(path):
         flash('No selected file')
         return redirect(request.url)
     if file and allowed_file(file.filename):
+
+        # Update the printer status
+        printer.status = "running"
+
+        # This line is need for the Manager to update its data
+        printers[printer_index] = printer
+
         si.send_to_printer(printer, file.read())
     return redirect("/")
 
-def run():
-    app.run(host="0.0.0.0", port=5005)
+# Custom Gunicorn application: https://docs.gunicorn.org/en/stable/custom.html
+class HttpServer(gunicorn.app.base.BaseApplication):
+    def __init__(self, app, options=None):
+        self.options = options or {}
+        self.application = app
+        super().__init__()
+
+    def load_config(self):
+        for key, value in self.options.items():
+            if key in self.cfg.settings and value is not None:
+                self.cfg.set(key.lower(), value)
+
+    def load(self):
+        return self.application
+
+def initialize():
+    global printers
+    printers = manager.list()
+    scan_for_printers()
+
 
 if __name__ == "__main__":
-    scan_for_printers()
-    run()
+    global manager
+    manager = Manager()
+
+    initialize()
+
+    # Server options
+    options = {
+        'bind': '%s:%s' % ('0.0.0.0', 5005),
+        'workers': 4,
+    }
+    # initialize()
+    HttpServer(app, options).run()
+
