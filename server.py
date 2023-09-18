@@ -46,9 +46,8 @@ def site():
 # Endpoint to fetch all printers and their status
 @app.route("/printers")
 def json_printers():
-    def to_json(p):
-        return p.__dict__
-    json_printers = [to_json(printer) for printer in printers]
+    global printers
+    json_printers = [printer.__dict__ for printer in printers]
     return json.dumps(json_printers)
 
 # Endpoint causing the server to rescan for connected printers.
@@ -76,7 +75,11 @@ def scan_for_printers():
             pass
 
     # We do not need the old printer list anymore
-    printers = manager.list(new_printers)
+    for i in range(len(printers)):
+        print(f"Deleting Printer: {printers[0]}")
+        del printers[0]
+
+    printers.extend(new_printers)
 
     # Add the newly connected printers
     for port in new_ports:
@@ -138,7 +141,8 @@ def upload_to_printer(path):
         # This line is need for the Manager to update its data
         printers[printer_index] = printer
 
-        si.send_to_printer(printer, file.read())
+        si.send_to_printer(printer, file)
+
     return redirect("/")
 
 # Custom Gunicorn application: https://docs.gunicorn.org/en/stable/custom.html
