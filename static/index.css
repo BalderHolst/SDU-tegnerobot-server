@@ -54,6 +54,10 @@ input {
     background: #20FF2090;
 }
 
+.idle label {
+    cursor: pointer;
+}
+
 .running {
     background: #4444FFA0;
 }
