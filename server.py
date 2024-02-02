@@ -9,10 +9,18 @@ import gunicorn.app.base
 # Modul som sender til printeren
 import serial_interface as si
 
+# Genererer navne til printere
+import namegen
+
 title = "Tegnerobot Server"
 app = Flask(title)
 
 class Printer:
+
+    @classmethod
+    def test(Self):
+        name = f"TEST: {namegen.assign_name()}"
+        return Self("dummy_port", name)
 
     @classmethod
     def next_id(Self):
@@ -23,9 +31,11 @@ class Printer:
             id += 1
         return id
 
-
-    def __init__(self, port):
+    def __init__(self, port, name = None):
         self.port = port
+        if name is None:
+            name = namegen.assign_name()
+        self.name = name
         self.status = "idle"
         self.id = Printer.next_id()
 
@@ -34,7 +44,7 @@ class Printer:
 
 @app.route("/test")
 def add_dummy_printer():
-    printers.append(Printer("Dummy"))
+    printers.append(Printer.test())
     return site()
 
 @app.route("/")
@@ -103,7 +113,6 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Returns a type of the printer's intex into `printers' and the printer itself
 def get_printer_by_id(id):
     for (i, p) in enumerate(printers):
         if p.id == id:
@@ -116,7 +125,7 @@ def upload_to_printer(path):
     # Try to convert the path to an id.
     try:
         id = int(path)
-    except ValueError as e:
+    except ValueError as _:
         flash(f"Endpoint `{path}` was not a printer id.")
         return redirect("/")
     (printer_index, printer) = get_printer_by_id(id)

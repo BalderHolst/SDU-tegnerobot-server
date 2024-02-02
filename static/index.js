@@ -6,6 +6,7 @@ async function get_printers() {
 
 // This function assumes that the printer does not already have an html element
 function createPrinterElement(printer) {
+
     // Variable describing if the printer is available.
     let available = false;
 
@@ -43,7 +44,7 @@ function createPrinterElement(printer) {
     if (available) {
         label.setAttribute("for", input_id);
     }
-    label.textContent = "Printer: " + printer.id;
+    label.textContent = printer.name;
     label.className = "printer_name";
 
     printer_div.appendChild(label); // Add the printer name to the printer node
