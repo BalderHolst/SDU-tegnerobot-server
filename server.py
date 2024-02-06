@@ -124,6 +124,9 @@ def get_printer_by_id(id):
             return (i, p)
     return None
 
+@app.route("/test_error")
+def test_error():
+    return upload_error("This is the error message. Is can be quite long.")
 
 def upload_error(e: str, printer_name = "printer"):
     print(f"UPLOAD ERROR: {e}")
