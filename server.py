@@ -15,6 +15,11 @@ import namegen
 title = "Tegnerobot Server"
 app = Flask(title)
 
+class Message:
+    def __init__(self, text: str, color = "blue") -> None:
+        self.text = text
+        self.color = color
+
 class Printer:
 
     @classmethod
@@ -119,6 +124,18 @@ def get_printer_by_id(id):
             return (i, p)
     return None
 
+
+def upload_error(e: str, printer_name = "printer"):
+    print(f"UPLOAD ERROR: {e}")
+    css = url_for('static', filename='index.css');
+    error_css = url_for('static', filename='error.css');
+    return render_template("error.html", title=title, main_css=css, error_css=error_css, printer=printer_name, message=Message(e, "#FF8888"))
+
+@app.route("/printers/<path:path>", methods=['GET'])
+def back(path):
+    print(f"Redirecting GET for '/printer/{path}' to '/'")
+    return redirect("/")
+
 @app.route("/printers/<path:path>", methods=['POST'])
 def upload_to_printer(path):
 
@@ -126,22 +143,25 @@ def upload_to_printer(path):
     try:
         id = int(path)
     except ValueError as _:
-        flash(f"Endpoint `{path}` was not a printer id.")
-        return redirect("/")
-    (printer_index, printer) = get_printer_by_id(id)
+        return upload_error(f"Endpoint `{path}` was not a printer id.")
+
+    res = get_printer_by_id(id)
+
+    if not res:
+        return upload_error('Printer does not exist anymore.')
+
+    (printer_index, printer) = res
     if not printer:
-        flash(f"Could not find printer with id: `{id}`.")
-        return redirect("/")
+        return upload_error(f"Could not find printer with id: `{id}`.")
 
     if 'file' not in request.files:
-        flash('No file part')
-        return redirect(request.url)
+        return upload_error('No file part', printer.name)
 
     file = request.files['file']
 
     if file.filename == '':
-        flash('No selected file')
-        return redirect(request.url)
+        return upload_error('No selected file', printer.name)
+
     if file and allowed_file(file.filename):
 
         # Update the printer status
@@ -150,7 +170,16 @@ def upload_to_printer(path):
         # This line is need for the Manager to update its data
         printers[printer_index] = printer
 
-        si.send_to_printer(printer, file)
+        try:
+            si.send_to_printer(printer, file)
+        except Exception as e:
+            printer.status = "idle"
+            printers[printer_index] = printer
+            return upload_error(e, printer.name)
+
+
+    else:
+        return upload_error(f"Filetype of '{file.filename}' not permitted. Permitted file types: {ALLOWED_EXTENSIONS}", printer.name)
 
     return redirect("/")
 
@@ -185,6 +214,9 @@ if __name__ == "__main__":
     options = {
         'bind': '%s:%s' % ('0.0.0.0', 5005),
         'workers': 4,
+        'log-level': 'debug',
+        'debug': True,
+        'capture-output': False,
     }
     # initialize()
     HttpServer(app, options).run()

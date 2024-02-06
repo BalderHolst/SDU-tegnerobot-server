@@ -1,0 +1,32 @@
+body {
+}
+
+.message {
+    display: block;
+    font-size: 25px;
+    padding: 30px;
+    width: min(100%, 1000px);
+    margin-left: auto;
+    margin-right: auto;
+    border-radius: 5px;
+}
+
+#back {
+    text-align: center;
+    display: block;
+    padding: 20px;
+    width: 100px;
+    margin: 20px auto;
+    background: green;
+    text-decoration: none;
+    color: black;
+    background: #20FF2090;
+    border: 2px solid black;
+    border-radius: 5px;
+    box-shadow: 5px 5px 5px #00000030;
+    font-size: 20px;
+}
+
+#back:hover {
+    background: #90DA90A0;
+}
