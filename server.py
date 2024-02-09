@@ -5,15 +5,18 @@ import json
 import serial.tools.list_ports
 from multiprocessing import Manager
 import gunicorn.app.base 
+import time
+import copy
 
-# Modul som sender til printeren
-import serial_interface as si
+printers = []
+BAUD_RATE = 9600
 
-# Genererer navne til printere
+# Other files
 import namegen
+import parsers
 
-title = "Tegnerobot Server"
-app = Flask(title)
+class SendError(Exception):
+    pass
 
 class Message:
     def __init__(self, text: str, color = "blue") -> None:
@@ -36,7 +39,8 @@ class Printer:
             id += 1
         return id
 
-    def __init__(self, port, name = None):
+    def __init__(self, port = None, name = None):
+        self.conn = None
         self.port = port
         if name is None:
             name = namegen.assign_name()
@@ -44,8 +48,55 @@ class Printer:
         self.status = "idle"
         self.id = Printer.next_id()
 
+    def to_dict(self):
+        return {
+            'name': self.name,
+            'status': self.status,
+            'id': self.id,
+        }
+
+    def send_file(self, file):
+        ext = file.filename.split(".")[-1];
+        msg = ""
+        if ext.lower() == "csv":
+            text = str(file.read())
+            msg = parsers.parse_csv_text(text);
+        else:
+            raise SendError(f"Extension '{ext}' not supported.")
+
+        print(f"Sending '{file.filename}' to printer {self.name}.")
+
+        self.send_text(msg)
+
+    def send_text(self, text):
+
+        if self.port == None:
+            print("Skipping sending to dummy printer.")
+
+        conn = serial.Serial(self.port, BAUD_RATE, timeout=1)
+        conn.readall()
+
+        print("clearing")
+        conn.readall() # Empty the serial buffer
+        time.sleep(0.05) 
+        
+        print("writing")
+        conn.write(bytes(text, 'utf-8'))
+        time.sleep(0.05) 
+        
+        print("reading")
+        resp = conn.readall()
+
+        if resp != b"ACK\r\n":
+            raise SendError("Printer did not recieve message correctly.")
+
+        print(f"Response: {resp}")
+
     def __repr__(self):
         return f"Printer(id: {self.id}, port: {self.port}, status: {self.status})"
+
+title = "Tegnerobot Server"
+app = Flask(title)
 
 @app.route("/test")
 def add_dummy_printer():
@@ -62,7 +113,7 @@ def site():
 @app.route("/printers")
 def json_printers():
     global printers
-    json_printers = [printer.__dict__ for printer in printers]
+    json_printers = [printer.to_dict() for printer in copy.copy(printers)]
     return json.dumps(json_printers)
 
 # Endpoint causing the server to rescan for connected printers.
@@ -154,6 +205,9 @@ def upload_to_printer(path):
         return upload_error('Printer does not exist anymore.')
 
     (printer_index, printer) = res
+
+    printer: Printer
+
     if not printer:
         return upload_error(f"Could not find printer with id: `{id}`.")
 
@@ -174,7 +228,7 @@ def upload_to_printer(path):
         printers[printer_index] = printer
 
         try:
-            si.send_to_printer(printer, file)
+            printer.send_file(file)
         except Exception as e:
             printer.status = "idle"
             printers[printer_index] = printer
@@ -185,6 +239,7 @@ def upload_to_printer(path):
         return upload_error(f"Filetype of '{file.filename}' not permitted. Permitted file types: {ALLOWED_EXTENSIONS}", printer.name)
 
     return redirect("/")
+
 
 # Custom Gunicorn application: https://docs.gunicorn.org/en/stable/custom.html
 class HttpServer(gunicorn.app.base.BaseApplication):
@@ -203,6 +258,7 @@ class HttpServer(gunicorn.app.base.BaseApplication):
 
 def initialize():
     global printers
+    manager.register("list")
     printers = manager.list()
     scan_for_printers()
 
