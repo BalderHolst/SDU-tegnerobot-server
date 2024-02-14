@@ -59,21 +59,22 @@ class Printer:
         ext = file.filename.split(".")[-1];
         msg = ""
         if ext.lower() == "csv":
-            text = str(file.read())
+            text = file.read().decode()
+            print(type(text), text)
             msg = parsers.parse_csv_text(text);
         else:
             raise SendError(f"Extension '{ext}' not supported.")
 
         print(f"Sending '{file.filename}' to printer {self.name}.")
 
-        self.send_text(msg)
+        self.send_bytes(msg)
 
-    def send_text(self, text):
+    def send_bytes(self, bs):
 
         if self.port == None:
             print("Skipping sending to dummy printer.")
 
-        conn = serial.Serial(self.port, BAUD_RATE, timeout=1)
+        conn = serial.Serial(self.port, BAUD_RATE, timeout=2)
         conn.readall()
 
         print("clearing")
@@ -81,15 +82,16 @@ class Printer:
         time.sleep(0.05) 
         
         print("writing")
-        conn.write(bytes(text, 'utf-8'))
+        conn.write(bs)
         time.sleep(0.05) 
         
         print("reading")
-        resp = conn.readall()
+        resp = conn.readline()
 
         if resp != b"ACK\r\n":
-            raise SendError("Printer did not recieve message correctly.")
+            raise SendError(f"Printer did not recieve message correctly. Got: {resp}.")
 
+        resp = conn.readall()
         print(f"Response: {resp}")
 
     def __repr__(self):
