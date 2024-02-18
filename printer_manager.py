@@ -7,6 +7,9 @@ import time
 
 import parsers
 
+def log(s: str):
+    print(f"[Printer Manager]: {s}")
+
 class PrinterStatus(Enum):
     RUNNING = 0,
     IDLE = 1,
@@ -41,7 +44,7 @@ def send_file(port: str, file):
 def send_bytes(port, bs: bytes):
 
     if port == None:
-        print("Skipping sending to dummy printer.")
+        log("Skipping sending to dummy printer.")
         return
 
     jobs_queue.put((port, bs))
@@ -50,16 +53,16 @@ def send_job(port: str, bs: bytes):
 
     conn = None
     if port in ports:
-        print(f"Found existing serial connection to {port}")
+        log(f"Found existing serial connection to {port}")
         conn = ports[port]
     else:
-        print(f"Starting new serial connection to {port}")
+        log(f"Starting new serial connection to {port}")
         try:
             serial_conn = serial.Serial(port, BAUD_RATE, timeout=2)
         except serial.serialutil.SerialException:
-            print(f"Unable to open port {port}. Aborting.")
+            log(f"Unable to open port {port}. Aborting.")
             return
-        print(f"Clearing '{port}'")
+        log(f"Clearing '{port}'")
         serial_conn.readall() # Empty the serial buffer
 
         time.sleep(0.05) 
@@ -72,7 +75,7 @@ def send_job(port: str, bs: bytes):
         # We write twice the data twice as very simple error checking.
         # The printer will not send and "ACK" message if the two messages
         # don't match.
-        print(f"Writing {conn.port}")
+        log(f"Writing {conn.port}")
         conn.serial.write(bs)
         conn.serial.write(b"\n")
         conn.serial.write(bs)
@@ -80,21 +83,24 @@ def send_job(port: str, bs: bytes):
         time.sleep(0.05) 
 
     except serial.serialutil.SerialException:
-        print(f"Could not write to port '{port}'. Deleting connection.")
+        log(f"Could not write to port '{port}'. Deleting connection.")
         del ports[port]
         send_job(port, bs) # Try again
         return
     
-    print(f"Reading '{conn.port}'")
+    log(f"Reading '{conn.port}'")
     resp = conn.serial.readall()
 
     if resp != b"ACK\r\n":
         raise SendError(f"Printer did not recieve message correctly. Got: {resp}.")
 
-    print(f"Sent job to '{conn.port}' successfully!")
+    log(f"Sent job to '{conn.port}' successfully!")
 
-def worker(q: multiprocessing.Queue):
-    print("Starting printer manager worker...")
+def worker(q: multiprocessing.Queue, printers):
+    log("Starting printer manager worker...")
+
+    for printer in printers:
+        print(printer)
 
     while True:
         if not q.empty():
@@ -102,5 +108,6 @@ def worker(q: multiprocessing.Queue):
             try:
                 send_job(port, bs)
             except SendError as e:
-                print(f"Printer Manager Error: '{e}'")
-
+                log(f"Printer Manager Error: '{e}'")
+        else:
+            time.sleep(0.5)
