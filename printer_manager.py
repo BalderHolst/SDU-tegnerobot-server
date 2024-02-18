@@ -1,3 +1,4 @@
+from csv import excel
 from enum import Enum
 from dataclasses import dataclass
 import multiprocessing
@@ -53,7 +54,11 @@ def send_job(port: str, bs: bytes):
         conn = ports[port]
     else:
         print(f"Starting new serial connection to {port}")
-        serial_conn = serial.Serial(port, BAUD_RATE, timeout=2)
+        try:
+            serial_conn = serial.Serial(port, BAUD_RATE, timeout=2)
+        except serial.serialutil.SerialException:
+            print(f"Unable to open port {port}. Aborting.")
+            return
         print(f"Clearing '{port}'")
         serial_conn.readall() # Empty the serial buffer
 
@@ -62,16 +67,23 @@ def send_job(port: str, bs: bytes):
         conn = PrinterConnection(port, serial_conn, PrinterStatus.RUNNING)
         ports[port] = conn
 
-    
-    # We write twice the data twice as very simple error checking.
-    # The printer will not send and "ACK" message if the two messages
-    # don't match.
-    print(f"Writing {conn.port}")
-    conn.serial.write(bs)
-    conn.serial.write(b"\n")
-    conn.serial.write(bs)
-    conn.serial.write(b"\n")
-    time.sleep(0.05) 
+
+    try:
+        # We write twice the data twice as very simple error checking.
+        # The printer will not send and "ACK" message if the two messages
+        # don't match.
+        print(f"Writing {conn.port}")
+        conn.serial.write(bs)
+        conn.serial.write(b"\n")
+        conn.serial.write(bs)
+        conn.serial.write(b"\n")
+        time.sleep(0.05) 
+
+    except serial.serialutil.SerialException:
+        print(f"Could not write to port '{port}'. Deleting connection.")
+        del ports[port]
+        send_job(port, bs) # Try again
+        return
     
     print(f"Reading '{conn.port}'")
     resp = conn.serial.readall()
