@@ -8,9 +8,6 @@ def pack_float(n: float) -> bytearray:
 
 def pack_csv_row(row):
     bytes_row = bytearray()
-
-    print(f"row: {row}")
-
     for e in row:
         try:
             f = float(e)

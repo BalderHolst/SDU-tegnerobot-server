@@ -5,18 +5,16 @@ import json
 import serial.tools.list_ports
 from multiprocessing import Manager
 import gunicorn.app.base 
-import time
 import copy
-
-printers = []
-BAUD_RATE = 9600
+import multiprocessing
 
 # Other files
 import namegen
-import parsers
+import printer_manager
 
-class SendError(Exception):
-    pass
+printer_worker = multiprocessing.Process(target=printer_manager.worker, args=(printer_manager.jobs_queue,))
+
+printers = []
 
 class Message:
     def __init__(self, text: str, color = "blue") -> None:
@@ -28,7 +26,7 @@ class Printer:
     @classmethod
     def test(Self):
         name = f"TEST: {namegen.assign_name()}"
-        return Self("dummy_port", name)
+        return Self(None, name)
 
     @classmethod
     def next_id(Self):
@@ -56,43 +54,8 @@ class Printer:
         }
 
     def send_file(self, file):
-        ext = file.filename.split(".")[-1];
-        msg = ""
-        if ext.lower() == "csv":
-            text = file.read().decode()
-            print(type(text), text)
-            msg = parsers.parse_csv_text(text);
-        else:
-            raise SendError(f"Extension '{ext}' not supported.")
-
         print(f"Sending '{file.filename}' to printer {self.name}.")
-
-        self.send_bytes(msg)
-
-    def send_bytes(self, bs):
-
-        if self.port == None:
-            print("Skipping sending to dummy printer.")
-
-        conn = serial.Serial(self.port, BAUD_RATE, timeout=2)
-        conn.readall()
-
-        print("clearing")
-        conn.readall() # Empty the serial buffer
-        time.sleep(0.05) 
-        
-        print("writing")
-        conn.write(bs)
-        time.sleep(0.05) 
-        
-        print("reading")
-        resp = conn.readline()
-
-        if resp != b"ACK\r\n":
-            raise SendError(f"Printer did not recieve message correctly. Got: {resp}.")
-
-        resp = conn.readall()
-        print(f"Response: {resp}")
+        printer_manager.send_file(self.port, file)
 
     def __repr__(self):
         return f"Printer(id: {self.id}, port: {self.port}, status: {self.status})"
@@ -223,9 +186,6 @@ def upload_to_printer(path):
 
     if file and allowed_file(file.filename):
 
-        # Update the printer status
-        printer.status = "running"
-
         # This line is need for the Manager to update its data
         printers[printer_index] = printer
 
@@ -260,8 +220,11 @@ class HttpServer(gunicorn.app.base.BaseApplication):
 
 def initialize():
     global printers
+    global jobs_queue
+    global printer_worker
     manager.register("list")
     printers = manager.list()
+    printer_worker.start()
     scan_for_printers()
 
 
