@@ -96,11 +96,8 @@ def send_job(port: str, bs: bytes):
 
     log(f"Sent job to '{conn.port}' successfully!")
 
-def worker(q: multiprocessing.Queue, printers):
+def worker(q: multiprocessing.Queue):
     log("Starting printer manager worker...")
-
-    for printer in printers:
-        print(printer)
 
     while True:
         if not q.empty():
